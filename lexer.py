@@ -1,47 +1,112 @@
-# Modifying the lexer to include new token types: MUL, DIV, LPAREN, and RPAREN
-lexer_code_updated = lexer_code.replace(
-    'EOF = "EOF"  # Означає кінець вхідного рядка',
-    'EOF = "EOF"  # Означає кінець вхідного рядка\n    MUL = "MUL"\n    DIV = "DIV"\n    LPAREN = "LPAREN"\n    RPAREN = "RPAREN"',
-)
+class LexicalError(Exception):
+    pass
 
-# Finding the location to insert the logic for recognizing new tokens in the Lexer class
-lexer_class_start = lexer_code_updated.find("class Lexer:")
-lexer_get_next_token_start = lexer_code_updated.find(
-    "def get_next_token", lexer_class_start
-)
 
-# Now, I'll modify the get_next_token method to recognize the new tokens
-insertion_point = lexer_code_updated.find(
-    "else:", lexer_get_next_token_start
-)  # finding the insertion point
+class SyntaxError(Exception):
+    pass
 
-# Preparing the code snippet to recognize '*', '/', '(', and ')'
-new_token_logic = """
-        elif self.current_char == '*':
+
+class TokenType:
+    INTEGER = "INTEGER"
+    PLUS = "PLUS"
+    MINUS = "MINUS"
+    EOF = "EOF"  # Означає кінець вхідного рядка
+    MUL = "MUL"
+    DIV = "DIV"
+    LPAREN = "LPAREN"
+    RPAREN = "RPAREN"
+
+
+class Token:
+    def __init__(self, type, value):
+        self.type = type
+        self.value = value
+
+    def __str__(self):
+        return f"Token({self.type}, {repr(self.value)})"
+
+
+class Lexer:
+    def __init__(self, text):
+        self.text = text
+        self.pos = 0
+        self.current_char = self.text[self.pos]
+
+    def advance(self):
+        """Переміщуємо 'вказівник' на наступний символ вхідного рядка"""
+        self.pos += 1
+        if self.pos > len(self.text) - 1:
+            self.current_char = None  # Означає кінець введення
+        else:
+            self.current_char = self.text[self.pos]
+
+    def skip_whitespace(self):
+        """Пропускаємо пробільні символи."""
+        while self.current_char is not None and self.current_char.isspace():
             self.advance()
-            return Token(TokenType.MUL, '*')
 
-        elif self.current_char == '/':
+    def integer(self):
+        """Повертаємо ціле число, зібране з послідовності цифр."""
+        result = ""
+        while self.current_char is not None and self.current_char.isdigit():
+            result += self.current_char
             self.advance()
-            return Token(TokenType.DIV, '/')
+        return int(result)
 
-        elif self.current_char == '(':
-            self.advance()
-            return Token(TokenType.LPAREN, '(')
+    def get_next_token(self):
+        """Лексичний аналізатор, що розбиває вхідний рядок на токени."""
+        while self.current_char is not None:
+            if self.current_char.isspace():
+                self.skip_whitespace()
+                continue
 
-        elif self.current_char == ')':
-            self.advance()
-            return Token(TokenType.RPAREN, ')')
-"""
+            if self.current_char.isdigit():
+                return Token(TokenType.INTEGER, self.integer())
 
-# Inserting the new logic
-lexer_code_updated = (
-    lexer_code_updated[:insertion_point]
-    + new_token_logic
-    + lexer_code_updated[insertion_point:]
-)
+            if self.current_char == "+":
+                self.advance()
+                return Token(TokenType.PLUS, "+")
 
-# Showing a part of the updated code for review
-lexer_code_updated[
-    lexer_get_next_token_start : lexer_get_next_token_start + 1000
-]  # Displaying a relevant portion of the updated code
+            if self.current_char == "-":
+                self.advance()
+                return Token(TokenType.MINUS, "-")
+
+            if self.current_char == "*":
+                self.advance()
+                return Token(TokenType.MUL, "*")
+
+            if self.current_char == "/":
+                self.advance()
+                return Token(TokenType.DIV, "/")
+
+            if self.current_char == "(":
+                self.advance()
+                return Token(TokenType.LPAREN, "(")
+
+            if self.current_char == ")":
+                self.advance()
+                return Token(TokenType.RPAREN, ")")
+
+            raise LexicalError("Помилка лексичного аналізу")
+
+        return Token(TokenType.EOF, None)
+
+
+def main():
+    while True:
+        try:
+            text = input('Введіть вираз (або "exit" для виходу): ')
+            if text.lower() == "exit":
+                print("Вихід із програми.")
+                break
+            lexer = Lexer(text)
+            token = lexer.get_next_token()
+            while token.type != TokenType.EOF:
+                print(token)
+                token = lexer.get_next_token()
+        except Exception as e:
+            print(e)
+
+
+if __name__ == "__main__":
+    main()
